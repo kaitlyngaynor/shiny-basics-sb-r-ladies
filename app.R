@@ -1,65 +1,57 @@
-# Spooky Shiny app!
-# SB R-Ladies 2019-10-30
-# Prepared by Allison Horst
+# this file must be saved as app.R; then you get a Run App button appear. Otherwise it won't work!
 
 library(tidyverse)
 library(shiny)
 library(shinythemes)
 
+# note read_csv rather than read.csv (reads into a tibble with readr package)
+# ALWAYS use read_csv (doesn't have strings as factors problem, can be faster)
 spooky <- read_csv("spooky_data.csv")
 
-ui <- fluidPage(
-  theme = shinytheme("slate"),
-  titlePanel("I am adding a title!"),
-  sidebarLayout(
-    sidebarPanel("put my widgets here",
-                 selectInput(inputId = "state_select",
-                             label = "Choose a state:",
-                             choices = unique(spooky$state)
-                 ),
+# workflow we used was:
+#  1) in UI, create widgets, specify input
+#  2) in server, take that input and do something with it, make output
+#  3) in UI, call output and make it appear
+
+# a note that "inputs" are things that go from UI to server, and "outputs" go from server to UI
+
+# User Interface
+# watch out for the many nested parentheses!
+
+ui <- fluidPage(  # fluid page is the 'net' around the user interface
+  titlePanel("Awesome Halloween app"),  # add a title to the app
+  sidebarLayout(  # specifies a layout for the app page with a sidebar
+    sidebarPanel("These are my widgets:", # put widgets in sidebar panel; you don't have to but it is common
+                 selectInput(
+                   inputId = "state_select", # name of the input; important for server below, must match
+                   label = "Choose a state:",
+                   choices = unique(spooky$state) # dropdown options will be all unique states in data frame (but can also manually specify options if you don't want all of them)
+                 ), # this is an R Shiny widget; can Google for list of many widget options
                  radioButtons(inputId = "region_select",
-                              label = "Choose region:",
-                              choices = unique(spooky$region_us_census))
-    ),
-    mainPanel("put my outputs here",
-              p("State's top candies:"),
-              tableOutput(outputId = "candy_table"),
-              p("Region’s top costumes:"),
-              plotOutput(outputId = "costume_graph")
-    )
+                              label = "Choose a region:",
+                              choices = unique(spooky$region_us_census)
+                 )
+                 ),
+    mainPanel("These are my outputs",
+              tableOutput(outputId = "candy_table"))
   )
 )
 
+# server is a function
 server <- function(input, output) {
 
-# Create reactive object state_candy that changes based on state_select widget selection
-  state_candy <- reactive({
-    spooky %>%
-      filter(state == input$state_select) %>%
-      select(candy, pounds_candy_sold)
+  # when you create a reactive subset, no parenthese are needed, but you DO need them when you call it later
+  state_candy <- reactive({  # need both parentheses and brackets
+    spooky %>% # control+shift+m for pipe
+      filter(state == input$state_select) # filter spooky dataset based on what user selected for state
   })
 
-# Render a reactive table that uses state_candy reactive object (and note the parentheses after state_candy -- do that if calling a reactive object!)
   output$candy_table <- renderTable({
     state_candy()
   })
 
-# Create a reactive object region_costume that only contains observations for the region selected in the region_select widget, then finds counts by costume & rank
-  region_costume <- reactive({
-    spooky %>%
-      filter(region_us_census == input$region_select) %>%
-      count(costume, rank)
-  })
-
-# Render a reactive graph with the counts of top costumes for each region:
-  output$costume_graph <- renderPlot({
-    ggplot(region_costume(), aes(x = costume, y = n)) +
-      geom_col(aes(fill = rank)) +
-      coord_flip() +
-      scale_fill_manual(values = c("black","purple","orange")) +
-      theme_minimal()
-  })
 }
 
-# Put them together!
+# specify the user interface and server for the app
+
 shinyApp(ui = ui, server = server)
